@@ -27,3 +27,6 @@ Thumbs.db
 *.webm
 *.part
 *.ytdl
+
+# Scratch
+scratch/

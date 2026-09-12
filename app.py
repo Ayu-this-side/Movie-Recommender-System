@@ -8,6 +8,7 @@ import pickle
 import pandas as pd
 import os
 import requests as req_lib
+from sklearn.metrics.pairwise import linear_kernel
 
 app = Flask(__name__, static_folder=".")
 
@@ -30,8 +31,20 @@ with open(os.path.join(BASE, "model", "similarity.pkl"), "rb") as f:
 
 print(f"Model ready. {len(movies)} movies loaded.", flush=True)
 
-# Build a lower-case -> original title lookup for fuzzy matching
-title_map = {t.lower(): t for t in movies["title"].tolist()}
+# Load popularity-sorted titles list for autocomplete
+titles_path = os.path.join(BASE, "model", "titles.json")
+if os.path.exists(titles_path):
+    import json
+    with open(titles_path, "r", encoding="utf-8") as f:
+        autocomplete_titles = json.load(f)
+else:
+    autocomplete_titles = movies["title"].drop_duplicates().tolist()
+
+# Build a unique lower-case -> original title lookup for fuzzy matching
+title_map = {}
+for t in autocomplete_titles:
+    if t.lower() not in title_map:
+        title_map[t.lower()] = t
 
 
 def find_movie(query):
@@ -45,15 +58,88 @@ def find_movie(query):
 
 
 def recommend(movie_title, n=5):
-    idx = movies[movies["title"] == movie_title].index[0]
-    distances = sorted(
-        enumerate(similarity[idx]), key=lambda x: x[1], reverse=True
-    )
+    matching = movies[movies["title"] == movie_title]
+    if matching.empty:
+        return []
+    idx = matching.index[0]
+    
+    # Fast cosine similarity using sparse linear kernel
+    sim_scores = linear_kernel(similarity[idx], similarity).flatten()
+    ranked_indices = sim_scores.argsort()[::-1]
+
     results = []
-    for i in distances[1:n + 1]:
-        row = movies.iloc[i[0]]
-        results.append({"title": row.title, "movie_id": int(row.movie_id)})
+    seen = {movie_title.lower()}
+    for i in ranked_indices:
+        row = movies.iloc[i]
+        t = row.title
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            raw_id = getattr(row, "movie_id", getattr(row, "imdb_id", i))
+            try:
+                m_id = int(raw_id)
+            except Exception:
+                m_id = str(raw_id)
+            imdb_val = str(getattr(row, "imdb_id", ""))
+            results.append({"title": t, "movie_id": m_id, "imdb_id": imdb_val})
+            if len(results) == n:
+                break
     return results
+
+
+# Precompute title -> imdb_id lookup
+title_to_imdb = {}
+if "imdb_id" in movies.columns:
+    for row in movies.itertuples():
+        t = str(row.title).strip().lower()
+        if t not in title_to_imdb and pd.notna(row.imdb_id):
+            title_to_imdb[t] = str(row.imdb_id).strip()
+
+# Session configured for IMDb requests
+imdb_session = req_lib.Session()
+imdb_session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Origin": "https://www.imdb.com",
+    "Referer": "https://www.imdb.com/",
+})
+
+
+def fetch_poster_by_imdb_id(imdb_id):
+    """Fetch official poster image from IMDb (https://www.imdb.com/) using imdb_id."""
+    if not imdb_id:
+        return None
+
+    # 1. Primary: IMDb CDN suggestion endpoint
+    try:
+        url = f"https://v3.sg.media-imdb.com/suggestion/x/{imdb_id}.json"
+        resp = imdb_session.get(url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            items = data.get("d", [])
+            if items and "i" in items[0]:
+                img_url = items[0]["i"].get("imageUrl")
+                if img_url:
+                    return img_url
+    except Exception as e:
+        print(f"IMDb direct lookup error for {imdb_id}: {e}", flush=True)
+
+    # 2. Secondary: OMDb using IMDb ID (i=imdb_id)
+    try:
+        resp = req_lib.get(
+            OMDB_URL,
+            params={"apikey": OMDB_KEY, "i": imdb_id},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=5,
+        )
+        data = resp.json()
+        poster = data.get("Poster")
+        if poster and poster != "N/A":
+            return poster
+    except Exception as e:
+        print(f"OMDb lookup error for {imdb_id}: {e}", flush=True)
+
+    return None
 
 
 @app.route("/")
@@ -75,30 +161,46 @@ def api_recommend():
 
 @app.route("/api/poster", methods=["GET"])
 def api_poster():
-    """Proxy OMDb poster fetch server-side to avoid CORS issues."""
+    """Fetch poster from IMDb using imdb_id."""
     title = request.args.get("title", "").strip()
-    if not title:
-        return jsonify({"poster": None}), 400
+    imdb_id = request.args.get("imdb_id", "").strip()
+
+    # Look up imdb_id from title if not explicitly provided
+    if not imdb_id and title:
+        canonical = find_movie(title) or title
+        imdb_id = title_to_imdb.get(canonical.lower(), title_to_imdb.get(title.lower()))
 
     # Check cache first
-    if title in _poster_cache:
-        return jsonify({"poster": _poster_cache[title]})
+    cache_key = imdb_id or title
+    if cache_key and cache_key in _poster_cache:
+        return jsonify({"poster": _poster_cache[cache_key], "imdb_id": imdb_id})
 
-    try:
-        resp = req_lib.get(
-            OMDB_URL,
-            params={"apikey": OMDB_KEY, "t": title, "type": "movie"},
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=6,
-        )
-        data = resp.json()
-        poster = data.get("Poster") or None
-        if poster == "N/A":
-            poster = None
+    poster = None
+    if imdb_id:
+        poster = fetch_poster_by_imdb_id(imdb_id)
+
+    # Fallback to title query on OMDb if no poster found yet and title is present
+    if not poster and title:
+        try:
+            resp = req_lib.get(
+                OMDB_URL,
+                params={"apikey": OMDB_KEY, "t": title, "type": "movie"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=5,
+            )
+            data = resp.json()
+            p = data.get("Poster")
+            if p and p != "N/A":
+                poster = p
+        except Exception:
+            pass
+
+    if cache_key:
+        _poster_cache[cache_key] = poster
+    if title and title not in _poster_cache:
         _poster_cache[title] = poster
-        return jsonify({"poster": poster})
-    except Exception as e:
-        return jsonify({"poster": None, "error": str(e)})
+
+    return jsonify({"poster": poster, "imdb_id": imdb_id})
 
 
 @app.route("/static/<path:filename>")
@@ -109,7 +211,7 @@ def serve_static(filename):
 
 @app.route("/api/movies", methods=["GET"])
 def api_movies():
-    return jsonify(movies["title"].tolist())
+    return jsonify(autocomplete_titles)
 
 
 if __name__ == "__main__":

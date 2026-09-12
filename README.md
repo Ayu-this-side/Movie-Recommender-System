@@ -1,4 +1,4 @@
-﻿# 🎬 CineMatch — AI Movie Recommender System
+# 🎬 CineMatch — AI Movie Recommender System
 
 ![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-2.x-000000?style=for-the-badge&logo=flask&logoColor=white)
@@ -43,14 +43,13 @@
 ```text
 Movie-Recommender-System/
 ├── Dataset/
-│   ├── tmdb_5000_credits.csv   # Cast, crew, and production credits
-│   └── tmdb_5000_movies.csv    # Movie metadata (genres, budget, keywords, etc.)
+│   └── movies_metadata.csv     # Movie metadata (genres, titles, overviews, taglines)
 ├── model/
 │   ├── movies.pkl              # Cleaned movie metadata DataFrame
-│   ├── similarity.pkl          # Cosine similarity matrix (Git LFS)
+│   ├── similarity.pkl          # TF-IDF similarity model
 │   └── titles.json             # Cached titles list for autocomplete
 ├── notebook/
-│   └── movie.ipynb             # Jupyter Notebook with full EDA, NLP & model training
+│   └── movieRecommender.ipynb  # Jupyter Notebook with full EDA, NLP & model training
 ├── static/
 │   ├── .gitkeep
 │   └── bg.mp4                  # Ambient background video (place your video here)

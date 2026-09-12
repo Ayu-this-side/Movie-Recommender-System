@@ -202,6 +202,8 @@
 
     /* Search section */
     .search-section {
+      position: relative;
+      z-index: 20;
       padding: 6rem 1.5rem 2rem;
       max-width: 760px; margin: 0 auto; text-align: center;
     }
@@ -230,7 +232,9 @@
 
     /* Search card */
     .search-card {
-      background: rgba(10,13,20,.92);
+      position: relative;
+      z-index: 20;
+      background: rgba(10,13,20,.95);
       border: 1px solid rgba(201,168,76,.22);
       border-radius: .7rem; padding: 2.25rem 2rem;
       backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -261,9 +265,9 @@
 
     #autocomplete-list {
       position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-      background: #0d1119; border: 1px solid rgba(201,168,76,.22);
+      background: #0c1018; border: 1px solid rgba(201,168,76,.3);
       border-radius: .4rem; max-height: 230px; overflow-y: auto;
-      z-index: 99; box-shadow: 0 20px 50px rgba(0,0,0,.75); display: none;
+      z-index: 1000; box-shadow: 0 20px 50px rgba(0,0,0,.9); display: none;
     }
     #autocomplete-list.open { display: block; }
     #autocomplete-list li {
@@ -303,6 +307,8 @@
 
     /* Results */
     #results-section {
+      position: relative;
+      z-index: 1;
       padding: 1rem 1.5rem 5rem; max-width: 1100px; margin: 0 auto;
       opacity: 0; transform: translateY(22px);
       transition: opacity .6s var(--ease), transform .6s var(--ease);
@@ -504,7 +510,6 @@
       <div class="stat" data-delay="0"><span class="stat-value" id="movie-count">4,806</span><span class="stat-label">Films in Database</span></div>
       <div class="stat" data-delay="120"><span class="stat-value">Cosine</span><span class="stat-label">Similarity Model</span></div>
       <div class="stat" data-delay="240"><span class="stat-value">5</span><span class="stat-label">Recommendations Each</span></div>
-      <div class="stat" data-delay="360"><span class="stat-value">TMDB</span><span class="stat-label">Dataset Source</span></div>
     </div>
 
     <!-- Search -->
@@ -549,7 +554,7 @@
   </main>
 
   <footer class="site-footer">
-    <p>CineMatch &mdash; <span class="footer-gold">Content-Based Film Intelligence</span> &middot; Built on the TMDB dataset</p>
+    <p>CineMatch &mdash; <span class="footer-gold">Content-Based Film Intelligence</span></p>
   </footer>
 
   <script>
@@ -615,7 +620,14 @@
 
     function renderDD(q){
       if(!q||q.length<2){closeDD();return;}
-      const m=allMovies.filter(t=>t.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+      const lower=q.toLowerCase();
+      const starts=[], contains=[];
+      for(let i=0;i<allMovies.length;i++){
+        const t=allMovies[i], tl=t.toLowerCase();
+        if(tl.startsWith(lower)){starts.push(t);if(starts.length>=8)break;}
+        else if(tl.includes(lower)&&(starts.length+contains.length<20)){contains.push(t);}
+      }
+      const m=starts.concat(contains).slice(0,8);
       if(!m.length){closeDD();return;}
       acList.innerHTML='';activeIdx=-1;
       m.forEach((t,i)=>{const li=document.createElement('li');li.setAttribute('role','option');li.setAttribute('id','ac-'+i);li.innerHTML=hl(t,q);li.addEventListener('mousedown',e=>{e.preventDefault();input.value=t;closeDD();doSearch(t);});acList.appendChild(li);});
