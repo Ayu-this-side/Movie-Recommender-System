@@ -4,24 +4,24 @@
 ![Flask](https://img.shields.io/badge/Flask-2.x-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![Scikit--Learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
 ![NLTK](https://img.shields.io/badge/NLTK-3.x-green?style=for-the-badge)
-![TMDB](https://img.shields.io/badge/TMDB-Dataset-01d277?style=for-the-badge&logo=themoviedatabase&logoColor=white)
+![IMDb](https://img.shields.io/badge/IMDb-Posters-F5C518?style=for-the-badge&logo=imdb&logoColor=black)
 ![Git LFS](https://img.shields.io/badge/Git_LFS-Enabled-orange?style=for-the-badge&logo=git-lfs&logoColor=white)
 
-> A modern, content-based movie recommender system powered by natural language processing and cosine similarity. Features an interactive, cinematic web interface with real-time autocomplete, dynamic poster fetching, and smooth video background.
+> A modern, content-based movie recommender system powered by natural language processing and cosine similarity. Features an interactive, cinematic web interface with real-time autocomplete, dynamic IMDb poster fetching, and smooth video background.
 
 ---
 
 ## ✨ Features
 
-- **🧠 Content-Based Filtering Model**: Recommends the top 5 most similar films based on genres, keywords, cast, crew (director), and overview text.
-- **⚡ Fast Cosine Similarity Matrix**: Vectorized textual tags with Bag-of-Words / CountVectorizer and Porter Stemming for high-precision semantic matching.
+- **🧠 Content-Based Filtering Model**: Recommends the top 5 most similar films based on genres, overview, and tagline across a comprehensive library of 45,000+ films.
+- **⚡ Fast TF-IDF Similarity Engine**: Vectorized textual tags with unigrams & bigrams (`ngram_range=(1,2)`), 50,000 features, and NLTK WordNet lemmatization for high-precision semantic matching in ~20–35ms.
 - **🎨 Cinematic Web Interface**:
   - Ambient looping background video with film grain and sprocket strips.
   - Elegant typography using *Cinzel* and *Cormorant Garamond*.
   - Rich interactive recommendation cards with Roman numeral ranks (Pick I to V), shimmer loading skeletons, and hover zoom & glow effects.
-  - Instant autocomplete search with fuzzy matching across 4,800+ films.
+  - Instant autocomplete search with prefix-ranking across 42,000+ unique films.
   - One-click popular movie chips for quick discovery.
-- **🖼️ Real-Time Poster Fetching**: Integrates poster image retrieval with in-memory server-side caching.
+- **🖼️ Real-Time IMDb Poster Fetching**: Integrates high-resolution poster image retrieval directly from IMDb via `imdb_id` with in-memory server-side caching.
 - **📱 Responsive Design**: Seamlessly adapts across desktops, tablets, and mobile devices.
 
 ---
@@ -32,9 +32,9 @@
 |---|---|
 | **Frontend** | HTML5, CSS3 (Vanilla CSS, Glassmorphism, CSS Grid), Vanilla JavaScript |
 | **Backend** | Python 3, Flask, Requests |
-| **ML & NLP** | Scikit-Learn (`CountVectorizer`, `cosine_similarity`), NLTK (`PorterStemmer`), Pandas, NumPy |
-| **Dataset** | TMDB 5000 Movie & Credits Dataset |
-| **Storage / Models** | Pickle (`movies.pkl`, `similarity.pkl`), Git LFS |
+| **ML & NLP** | Scikit-Learn (`TfidfVectorizer`, `linear_kernel`), NLTK (`WordNetLemmatizer`, `stopwords`), Pandas, NumPy |
+| **Dataset** | The Movies Metadata Dataset (`movies_metadata.csv` — 45,000+ films) |
+| **Storage / Models** | Pickle (`movies.pkl`, `similarity.pkl`), JSON (`titles.json`), Git LFS |
 
 ---
 
@@ -46,8 +46,8 @@ Movie-Recommender-System/
 │   └── movies_metadata.csv     # Movie metadata (genres, titles, overviews, taglines)
 ├── model/
 │   ├── movies.pkl              # Cleaned movie metadata DataFrame
-│   ├── similarity.pkl          # TF-IDF similarity model
-│   └── titles.json             # Cached titles list for autocomplete
+│   ├── similarity.pkl          # TF-IDF sparse similarity model (Git LFS)
+│   └── titles.json             # Cached titles list for autocomplete ranked by popularity
 ├── notebook/
 │   └── movieRecommender.ipynb  # Jupyter Notebook with full EDA, NLP & model training
 ├── static/
@@ -65,17 +65,18 @@ Movie-Recommender-System/
 
 ## 🧠 How the Recommendation Engine Works
 
-1. **Feature Extraction**: Extracts `genres`, `keywords`, top 3 `cast` members, `director` from crew, and the plot `overview`.
-2. **Text Normalization**:
-   - Converts all words to lowercase and removes spaces between multi-word tags (e.g., `Sam Worthington` → `samworthington`) to prevent entity collision.
-   - Combines all metadata into a single unified `tags` feature column.
-3. **Stemming & Vectorization**:
-   - Applies NLTK's `PorterStemmer` (e.g., `actions`, `action` → `action`).
-   - Converts text into 5,000 top-frequency vectors using `CountVectorizer(max_features=5000, stop_words='english')`.
+1. **Feature Extraction**: Combines the plot `overview`, parsed `genres`, and `tagline` into a single, unified `tags` feature column.
+2. **Text Normalization & Lemmatization**:
+   - Converts all words to lowercase and removes punctuation using regex.
+   - Filters out English stopwords.
+   - Applies NLTK's `WordNetLemmatizer` (e.g., `running`, `runs` → `run`) for accurate morphological normalization.
+3. **TF-IDF Vectorization**:
+   - Extracts unigram and bigram tokens with `TfidfVectorizer(max_features=50000, ngram_range=(1,2), stop_words='english')`.
+   - Generates a compact scipy sparse feature matrix (`45,426 × 50,000`).
 4. **Cosine Similarity**:
-   - Measures the angular distance between movie vectors in high-dimensional space:
+   - Computes cosine similarity against the query movie vector using `linear_kernel`:
    $$\text{Cosine Similarity}(\vec{u}, \vec{v}) = \frac{\vec{u} \cdot \vec{v}}{\|\vec{u}\| \|\vec{v}\|}$$
-   - Returns the top 5 closest neighbors for any input title.
+   - Sorts candidates in descending similarity order and returns the top 5 closest kindred films in ~20ms.
 
 ---
 
@@ -114,7 +115,7 @@ source venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
-pip install flask pandas scikit-learn requests
+pip install flask pandas scikit-learn requests nltk
 ```
 
 ### 4. Background Video (Optional)
@@ -147,11 +148,11 @@ http://127.0.0.1:5000
 {
   "query": "Avatar",
   "recommendations": [
-    { "movie_id": 19995, "title": "Aliens vs Predator: Requiem" },
-    { "movie_id": 1858, "title": "Aliens" },
-    { "movie_id": 679, "title": "Falcon Rising" },
-    { "movie_id": 106, "title": "Independence Day" },
-    { "movie_id": 348, "title": "Titan A.E." }
+    { "movie_id": 26535, "imdb_id": "tt1630029", "title": "Avatar 2" },
+    { "movie_id": 26541, "imdb_id": "tt3501632", "title": "Thor: Ragnarok" },
+    { "movie_id": 13880, "imdb_id": "tt0972558", "title": "The Inhabited Island" },
+    { "movie_id": 43412, "imdb_id": "tt3705822", "title": "Moontrap: Target Earth" },
+    { "movie_id": 14116, "imdb_id": "tt0024663", "title": "The Three Musketeers" }
   ]
 }
 ```
@@ -159,18 +160,19 @@ http://127.0.0.1:5000
 ### 2. Fetch Movie Poster
 - **Endpoint**: `/api/poster`
 - **Method**: `GET`
-- **Query Parameter**: `title` *(string, required)*
+- **Query Parameters**: `title` *(string)* or `imdb_id` *(string)*
 - **Response**:
 ```json
 {
-  "poster": "https://m.media-amazon.com/images/M/...jpg"
+  "imdb_id": "tt0468569",
+  "poster": "https://m.media-amazon.com/images/M/MV5BMTMxNTMwODM0NF5BMl5BanBnXkFtZTcwODAyMTk2Mw@@._V1_.jpg"
 }
 ```
 
 ### 3. Movie Title Autocomplete List
 - **Endpoint**: `/api/movies`
 - **Method**: `GET`
-- **Response**: Array of all 4,806 movie titles.
+- **Response**: Array of 42,263 unique movie titles ranked by popularity.
 
 ---
 
