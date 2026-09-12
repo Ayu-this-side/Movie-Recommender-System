@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineMatch — Movie Recommender</title>
+  <meta name="description" content="Discover your next favourite film. Enter any movie title and our AI model returns 5 personalised recommendations instantly." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Cinzel:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Reset */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    :root {
+      --bg:       #05080f;
+      --surface:  #0c1018;
+      --card:     rgba(12,16,24,.88);
+      --border:   rgba(255,255,255,.08);
+      --gold:     #c9a84c;
+      --gold-lt:  #e8c97a;
+      --cream:    #f5efe6;
+      --text:     #e0d8c8;
+      --muted:    #6e6657;
+      --ease:     cubic-bezier(.22,1,.36,1);
+      --font-main:'Cormorant Garamond', Georgia, serif;
+      --font-head:'Cinzel', Georgia, serif;
+    }
+
+    body {
+      font-family: var(--font-main);
+      font-size: 1.1rem;
+      font-style: italic;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      width: 100%; height: 100vh; min-height: 620px;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+
+    .hero-video-wrap {
+      position: absolute; inset: 0; z-index: 0;
+      pointer-events: none; overflow: hidden;
+    }
+    .hero-video-wrap video {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 100%; height: 100%;
+      min-width: 100%; min-height: 100%;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      object-position: center;
+    }
+
+    .hero-veil {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(
+        to bottom,
+        rgba(5,8,15,.5) 0%,
+        rgba(5,8,15,.3) 35%,
+        rgba(5,8,15,.6) 75%,
+        rgba(5,8,15,.98) 100%
+      );
+    }
+
+    /* Film grain */
+    .hero::after {
+      content: '';
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      background-size: 180px;
+      opacity: .4;
+    }
+
+    /* Film sprocket strips */
+    .film-strip {
+      position: absolute; left: 0; right: 0; z-index: 3;
+      height: 34px; background: #000;
+      display: flex; align-items: center;
+    }
+    .film-strip.top { top: 0; }
+    .film-strip.bottom { bottom: 0; }
+    .film-hole {
+      flex-shrink: 0; width: 20px; height: 14px;
+      background: rgba(5,8,15,.9);
+      border-radius: 3px; margin: 0 8px;
+    }
+
+    .hero-content {
+      position: relative; z-index: 4;
+      text-align: center;
+      padding: 2rem 1.5rem; max-width: 800px;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--font-head);
+      font-style: normal;
+      font-size: clamp(.65rem, 1.2vw, .85rem);
+      letter-spacing: .38em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 1.25rem;
+      opacity: 0; animation: fade-up .9s var(--ease) .2s forwards;
+    }
+
+    .hero-title {
+      font-family: var(--font-head);
+      font-style: normal;
+      font-size: clamp(2.6rem, 7vw, 5.8rem);
+      font-weight: 700; line-height: 1.06; letter-spacing: .04em;
+      color: var(--cream);
+      text-shadow: 0 2px 48px rgba(0,0,0,.9);
+      margin-bottom: 1.1rem;
+      opacity: 0; animation: fade-up .9s var(--ease) .42s forwards;
+    }
+    .hero-title em {
+      color: var(--gold-lt);
+      font-style: italic;
+    }
+
+    .hero-sub {
+      font-family: var(--font-main);
+      font-style: italic; font-size: clamp(1.05rem, 2vw, 1.3rem);
+      color: rgba(224,216,200,.7);
+      max-width: 44ch; margin: 0 auto 2.5rem; line-height: 1.7;
+      opacity: 0; animation: fade-up .9s var(--ease) .62s forwards;
+    }
+
+    .hero-cta {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .95rem 2rem;
+      background: linear-gradient(135deg, var(--gold), #8b6914);
+      border: none; border-radius: .4rem;
+      color: #05080f;
+      font-family: var(--font-head); font-style: normal;
+      font-size: .78rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+      text-decoration: none; cursor: pointer;
+      box-shadow: 0 4px 28px rgba(201,168,76,.35);
+      transition: filter .2s, transform .15s, box-shadow .2s;
+      opacity: 0; animation: fade-up .9s var(--ease) .82s forwards;
+    }
+    .hero-cta:hover { filter: brightness(1.12); transform: translateY(-2px); box-shadow: 0 8px 36px rgba(201,168,76,.5); }
+    .hero-cta svg { width: 16px; height: 16px; fill: none; stroke: #05080f; stroke-width: 2.2; }
+
+    .scroll-cue {
+      position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+      z-index: 4; display: flex; flex-direction: column; align-items: center; gap: .5rem;
+      opacity: 0; animation: fade-up .9s var(--ease) 1.3s forwards;
+    }
+    .scroll-cue span {
+      font-family: var(--font-head); font-style: normal;
+      font-size: .62rem; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); opacity: .8;
+    }
+    .scroll-line {
+      width: 1px; height: 44px;
+      background: linear-gradient(to bottom, var(--gold), transparent);
+      animation: pulse-line 1.9s ease-in-out infinite;
+    }
+    @keyframes pulse-line { 0%,100%{transform:scaleY(1);opacity:.8} 50%{transform:scaleY(.5);opacity:.25} }
+
+    /* ===== MAIN ===== */
+    main { background: var(--bg); position: relative; z-index: 10; }
+
+    .section-divider {
+      width: 72px; height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold), transparent);
+      margin: 0 auto;
+    }
+
+    /* Stats band */
+    .stats-band {
+      background: linear-gradient(180deg, #08090e 0%, #0c1018 100%);
+      border-top: 1px solid rgba(201,168,76,.18);
+      border-bottom: 1px solid rgba(201,168,76,.18);
+      padding: 3rem 2rem;
+      display: flex; justify-content: center; gap: 4.5rem; flex-wrap: wrap;
+    }
+    .stat {
+      text-align: center;
+      opacity: 0; transform: translateY(16px);
+      transition: opacity .7s var(--ease), transform .7s var(--ease);
+    }
+    .stat.in-view { opacity: 1; transform: translateY(0); }
+    .stat-value {
+      font-family: var(--font-head); font-style: normal;
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 600;
+      color: var(--gold-lt); display: block;
+    }
+    .stat-label {
+      font-family: var(--font-main); font-style: italic;
+      font-size: .95rem; color: var(--muted); letter-spacing: .03em;
+    }
+
+    /* Search section */
+    .search-section {
+      padding: 6rem 1.5rem 2rem;
+      max-width: 760px; margin: 0 auto; text-align: center;
+    }
+
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .65s var(--ease), transform .65s var(--ease); }
+    .reveal.in-view { opacity: 1; transform: translateY(0); }
+    .reveal-d1 { transition-delay: .1s; }
+    .reveal-d2 { transition-delay: .2s; }
+    .reveal-d3 { transition-delay: .3s; }
+
+    .section-label {
+      font-family: var(--font-head); font-style: normal;
+      font-size: .72rem; letter-spacing: .32em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: .85rem; display: block;
+    }
+    .section-heading {
+      font-family: var(--font-head); font-style: normal;
+      font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 600;
+      color: var(--cream); margin-bottom: .7rem;
+    }
+    .section-desc {
+      font-family: var(--font-main); font-style: italic;
+      font-size: clamp(1rem, 1.8vw, 1.18rem); color: var(--muted);
+      max-width: 46ch; margin: 0 auto 2.5rem; line-height: 1.72;
+    }
+
+    /* Search card */
+    .search-card {
+      background: rgba(10,13,20,.92);
+      border: 1px solid rgba(201,168,76,.22);
+      border-radius: .7rem; padding: 2.25rem 2rem;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(201,168,76,.08), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+
+    .search-label-txt {
+      display: block;
+      font-family: var(--font-head); font-style: normal;
+      font-size: .68rem; letter-spacing: .3em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: .85rem;
+    }
+
+    .search-row { display: flex; gap: .7rem; align-items: stretch; }
+    .autocomplete-wrap { position: relative; flex: 1; }
+
+    #movie-input {
+      width: 100%; padding: 1.05rem 1.15rem;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(201,168,76,.28);
+      border-radius: .4rem; color: var(--cream);
+      font-family: var(--font-main); font-style: italic; font-size: 1.15rem;
+      outline: none; letter-spacing: .02em;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    #movie-input::placeholder { color: rgba(110,102,87,.65); font-style: italic; }
+    #movie-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,.14); }
+
+    #autocomplete-list {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: #0d1119; border: 1px solid rgba(201,168,76,.22);
+      border-radius: .4rem; max-height: 230px; overflow-y: auto;
+      z-index: 99; box-shadow: 0 20px 50px rgba(0,0,0,.75); display: none;
+    }
+    #autocomplete-list.open { display: block; }
+    #autocomplete-list li {
+      padding: .78rem 1.15rem; cursor: pointer; list-style: none;
+      font-family: var(--font-main); font-style: italic; font-size: 1.05rem; color: var(--text);
+      border-bottom: 1px solid rgba(255,255,255,.04); transition: background .12s;
+    }
+    #autocomplete-list li:last-child { border-bottom: none; }
+    #autocomplete-list li:hover, #autocomplete-list li.active { background: rgba(201,168,76,.1); color: var(--gold-lt); }
+    #autocomplete-list li mark { background: transparent; color: var(--gold-lt); font-weight: 700; }
+    #autocomplete-list::-webkit-scrollbar { width: 3px; }
+    #autocomplete-list::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+
+    .search-btn {
+      padding: 1.05rem 1.6rem;
+      background: linear-gradient(135deg, var(--gold), #7a5c10);
+      border: none; border-radius: .4rem;
+      color: #05080f; font-family: var(--font-head); font-style: normal;
+      font-size: .78rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+      cursor: pointer; white-space: nowrap;
+      display: flex; align-items: center; gap: .45rem;
+      box-shadow: 0 4px 24px rgba(201,168,76,.28);
+      transition: filter .2s, transform .15s, box-shadow .2s;
+    }
+    .search-btn:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 8px 32px rgba(201,168,76,.44); }
+    .search-btn:active:not(:disabled) { transform: translateY(0); }
+    .search-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .search-btn svg { width: 16px; height: 16px; fill: none; stroke: #05080f; stroke-width: 2.2; }
+
+    .spinner { width: 14px; height: 14px; border: 2px solid rgba(5,8,15,.25); border-top-color: #05080f; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+    .spinner.visible { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status { margin-top: .8rem; font-family: var(--font-main); font-style: italic; font-size: 1rem; min-height: 1.4em; text-align: center; transition: opacity .3s; }
+    .status.error { color: #c46060; }
+    .status.info  { color: var(--muted); }
+
+    /* Results */
+    #results-section {
+      padding: 1rem 1.5rem 5rem; max-width: 1100px; margin: 0 auto;
+      opacity: 0; transform: translateY(22px);
+      transition: opacity .6s var(--ease), transform .6s var(--ease);
+    }
+    #results-section.visible { opacity: 1; transform: translateY(0); }
+
+    .results-heading {
+      font-family: var(--font-head); font-style: normal;
+      font-size: clamp(1.25rem, 2.5vw, 1.75rem); font-weight: 600;
+      color: var(--cream); text-align: center; margin-bottom: .35rem;
+    }
+    .results-sub {
+      font-family: var(--font-main); font-style: italic;
+      font-size: 1rem; color: var(--muted); text-align: center; margin-bottom: 2.5rem;
+    }
+    .results-heading span { color: var(--gold-lt); }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1.15rem;
+    }
+
+    .movie-card {
+      background: var(--card);
+      border: 1px solid rgba(201,168,76,.14);
+      border-radius: .6rem; padding: 1.3rem 1.05rem;
+      display: flex; flex-direction: column; gap: .6rem;
+      position: relative; overflow: hidden;
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      cursor: pointer;
+      transition: transform .38s var(--ease), border-color .38s var(--ease), box-shadow .38s var(--ease), background .38s var(--ease);
+      animation: card-rise .55s var(--ease) both;
+    }
+    .movie-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(201,168,76,.18), transparent 70%);
+      opacity: 0; transition: opacity .38s var(--ease);
+      pointer-events: none;
+    }
+    .movie-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      border-color: rgba(201,168,76,.55);
+      background: rgba(14,19,30,.96);
+      box-shadow: 0 22px 55px rgba(0,0,0,.85), 0 0 30px rgba(201,168,76,.2), 0 0 0 1px rgba(201,168,76,.28);
+    }
+    .movie-card:hover::before { opacity: 1; }
+    @keyframes card-rise { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+
+    .card-rank {
+      font-family: var(--font-head); font-style: normal;
+      font-size: .58rem; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
+      transition: color .3s, letter-spacing .3s;
+    }
+    .movie-card:hover .card-rank {
+      color: var(--gold-lt);
+      letter-spacing: .26em;
+    }
+    .card-poster {
+      width: 100%; aspect-ratio: 2/3;
+      border-radius: .35rem;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; position: relative;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      transition: box-shadow .38s var(--ease);
+    }
+    .movie-card:hover .card-poster {
+      box-shadow: 0 14px 34px rgba(0,0,0,.7), 0 0 20px rgba(201,168,76,.15);
+    }
+    .card-poster-placeholder {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(160deg, rgba(201,168,76,.08), rgba(139,26,26,.06));
+      transition: opacity .4s;
+    }
+    .card-poster-placeholder.hidden { opacity: 0; pointer-events: none; }
+    .card-poster-placeholder svg { width: 34px; height: 34px; opacity: .22; color: var(--gold); }
+    .card-poster img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; border-radius: .35rem;
+      opacity: 0;
+      transform: scale(1);
+      transition: opacity .5s ease, transform .45s var(--ease), filter .45s var(--ease);
+    }
+    .card-poster img.loaded { opacity: 1; }
+    .movie-card:hover .card-poster img.loaded {
+      transform: scale(1.07);
+      filter: brightness(1.08) contrast(1.04);
+    }
+    /* Shimmer loading animation */
+    .card-poster.loading .card-poster-placeholder {
+      background: linear-gradient(90deg, rgba(201,168,76,.05) 0%, rgba(201,168,76,.12) 50%, rgba(201,168,76,.05) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+    .card-title {
+      font-family: var(--font-main); font-style: italic; font-size: .98rem; font-weight: 600; line-height: 1.42; color: var(--cream);
+      transition: color .3s, text-shadow .3s;
+    }
+    .movie-card:hover .card-title {
+      color: #fff;
+      text-shadow: 0 0 12px rgba(232,201,122,.35);
+    }
+    .card-tag {
+      font-family: var(--font-head); font-style: normal; font-size: .56rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); opacity: .65;
+      transition: opacity .3s, color .3s;
+    }
+    .movie-card:hover .card-tag {
+      opacity: 1;
+      color: var(--gold-lt);
+    }
+
+    /* Popular */
+    .popular-section {
+      padding: 0 1.5rem 5.5rem;
+      max-width: 760px; margin: 0 auto;
+    }
+    .pop-label {
+      font-family: var(--font-head); font-style: normal;
+      font-size: .68rem; letter-spacing: .3em; text-transform: uppercase; color: var(--muted);
+      margin-bottom: 1rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .pop-label::before, .pop-label::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(to right, transparent, rgba(201,168,76,.18), transparent);
+    }
+    .chips-wrap { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+    .chip {
+      padding: .42rem .95rem;
+      background: rgba(201,168,76,.05);
+      border: 1px solid rgba(201,168,76,.18);
+      border-radius: 100px;
+      font-family: var(--font-main); font-style: italic; font-size: 1rem; color: var(--text);
+      cursor: pointer; transition: background .2s, border-color .2s, color .2s, transform .15s;
+    }
+    .chip:hover { background: rgba(201,168,76,.14); border-color: rgba(201,168,76,.45); color: var(--gold-lt); transform: translateY(-1px); }
+
+    /* Footer */
+    .site-footer {
+      background: #030508;
+      border-top: 1px solid rgba(201,168,76,.1);
+      padding: 2.5rem 1.5rem; text-align: center;
+    }
+    .site-footer p { font-family: var(--font-main); font-style: italic; font-size: .92rem; color: var(--muted); }
+    .footer-gold { color: var(--gold); opacity: .8; }
+
+    /* Keyframes */
+    @keyframes fade-up { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+
+    /* Responsive */
+    @media (max-width: 900px) { .cards-grid { grid-template-columns: repeat(3, 1fr); } .stats-band { gap: 2rem; } }
+    @media (max-width: 600px) {
+      .search-row { flex-direction: column; }
+      .search-btn { justify-content: center; }
+      .cards-grid { grid-template-columns: repeat(2, 1fr); }
+      .stats-band { gap: 1.5rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="film-strip top" aria-hidden="true" id="film-top"></div>
+    <div class="film-strip bottom" aria-hidden="true" id="film-bottom"></div>
+
+    <div class="hero-video-wrap" aria-hidden="true">
+      <video autoplay muted loop playsinline id="hero-video"
+        poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+        <source src="/static/vidssave.com%20Stars%20Fly%20Through%20in%20the%20Universe%20Space%20Background%20Animation%20_%204K%20Screensaver%20Royalty%20Free%20720p.mp4" type="video/mp4" />
+        <source src="/static/bg.mp4" type="video/mp4" />
+      </video>
+    </div>
+    <div class="hero-veil" id="hero-veil"></div>
+
+    <div class="hero-content">
+      <p class="hero-eyebrow">Powered by Content-Based AI</p>
+      <h1 class="hero-title">Discover Your<br><em>Next Favourite</em><br>Film</h1>
+      <p class="hero-sub">Enter any movie and our model surfaces five titles crafted to match your taste &mdash; instantly.</p>
+      <a href="#search" class="hero-cta">
+        Find Your Match
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12l7 7 7-7"/></svg>
+      </a>
+    </div>
+
+    <div class="scroll-cue" aria-hidden="true">
+      <span>Scroll</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <main>
+    <!-- Stats -->
+    <div class="stats-band">
+      <div class="stat" data-delay="0"><span class="stat-value" id="movie-count">4,806</span><span class="stat-label">Films in Database</span></div>
+      <div class="stat" data-delay="120"><span class="stat-value">Cosine</span><span class="stat-label">Similarity Model</span></div>
+      <div class="stat" data-delay="240"><span class="stat-value">5</span><span class="stat-label">Recommendations Each</span></div>
+      <div class="stat" data-delay="360"><span class="stat-value">TMDB</span><span class="stat-label">Dataset Source</span></div>
+    </div>
+
+    <!-- Search -->
+    <section class="search-section" id="search">
+      <div class="section-divider" style="margin-bottom:2.25rem"></div>
+      <span class="section-label reveal">The Oracle</span>
+      <h2 class="section-heading reveal reveal-d1">What Are You Watching?</h2>
+      <p class="section-desc reveal reveal-d2">Type a title you love. Our model decodes its essence &mdash; genre, cast, themes &mdash; and finds five kindred films waiting for you.</p>
+
+      <div class="search-card reveal reveal-d3" role="main">
+        <label class="search-label-txt" for="movie-input">Enter a movie title</label>
+        <div class="search-row">
+          <div class="autocomplete-wrap">
+            <input type="text" id="movie-input" name="movie"
+              placeholder="Type something to start..."
+              autocomplete="off" spellcheck="false"
+              aria-autocomplete="list" aria-controls="autocomplete-list" aria-haspopup="listbox" />
+            <ul id="autocomplete-list" role="listbox" aria-label="Movie suggestions"></ul>
+          </div>
+          <button class="search-btn" id="search-btn" type="button" aria-label="Find recommendations">
+            <span class="spinner" id="spinner" aria-hidden="true"></span>
+            <span id="btn-label">Recommend</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5-5 5M6 12h12"/></svg>
+          </button>
+        </div>
+        <div class="status info" id="status-msg" aria-live="polite" aria-atomic="true">Begin by entering a film title above...</div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results-section" aria-label="Recommendations" aria-live="polite">
+      <h2 class="results-heading">Because you loved <span id="query-title"></span></h2>
+      <p class="results-sub">Five films selected by the model &mdash; chosen for you</p>
+      <div class="cards-grid" id="cards-grid" role="list"></div>
+    </section>
+
+    <!-- Popular -->
+    <div class="popular-section reveal" id="popular-section">
+      <p class="pop-label">Popular Searches</p>
+      <div class="chips-wrap" id="chips-wrap" role="list" aria-label="Popular movies to try"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>CineMatch &mdash; <span class="footer-gold">Content-Based Film Intelligence</span> &middot; Built on the TMDB dataset</p>
+  </footer>
+
+  <script>
+    // Film strip holes
+    function buildStrip(el) {
+      const n = Math.ceil(window.innerWidth / 30) + 6;
+      el.innerHTML = '';
+      for (let i = 0; i < n; i++) { const h = document.createElement('div'); h.className = 'film-hole'; el.appendChild(h); }
+    }
+    buildStrip(document.getElementById('film-top'));
+    buildStrip(document.getElementById('film-bottom'));
+    window.addEventListener('resize', () => { buildStrip(document.getElementById('film-top')); buildStrip(document.getElementById('film-bottom')); });
+
+    // Intersection Observer — scroll-in animations
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const d = Number(e.target.dataset.delay || 0);
+          setTimeout(() => e.target.classList.add('in-view'), d);
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.14 });
+    document.querySelectorAll('.stat, .reveal, .popular-section').forEach(el => io.observe(el));
+
+    // Parallax veil darkening on scroll
+    const veil = document.getElementById('hero-veil');
+    const heroEl = document.getElementById('hero');
+    window.addEventListener('scroll', () => {
+      const p = Math.min(window.scrollY / heroEl.offsetHeight, 1);
+      veil.style.background = `linear-gradient(to bottom,rgba(5,8,15,${.5+p*.35}) 0%,rgba(5,8,15,${.3+p*.35}) 35%,rgba(5,8,15,${.6+p*.25}) 75%,rgba(5,8,15,.98) 100%)`;
+    }, { passive: true });
+
+    // API
+    const API_RECOMMEND = '/api/recommend';
+    const API_MOVIES    = '/api/movies';
+    const POPULAR = ['Avatar','The Dark Knight','Inception','Interstellar','The Avengers','Titanic','Forrest Gump','The Matrix','Pulp Fiction','Jurassic Park','Harry Potter and the Half-Blood Prince','Spectre','Toy Story'];
+    const COLORS = [['#c9a84c','#8b6914'],['#8b1a1a','#c9a84c'],['#1a3d5c','#c9a84c'],['#2a5c1a','#c9a84c'],['#5c1a4a','#c9a84c']];
+    const ROMAN = ['I','II','III','IV','V'];
+
+    let allMovies = [], activeIdx = -1;
+    const input = document.getElementById('movie-input');
+    const acList = document.getElementById('autocomplete-list');
+    const searchBtn = document.getElementById('search-btn');
+    const spinner = document.getElementById('spinner');
+    const btnLabel = document.getElementById('btn-label');
+    const statusMsg = document.getElementById('status-msg');
+    const resultsSection = document.getElementById('results-section');
+    const queryTitle = document.getElementById('query-title');
+    const cardsGrid = document.getElementById('cards-grid');
+    const chipsWrap = document.getElementById('chips-wrap');
+    const popularSection = document.getElementById('popular-section');
+
+    fetch(API_MOVIES).then(r=>r.json()).then(d=>{allMovies=d;document.getElementById('movie-count').textContent=d.length.toLocaleString();}).catch(()=>{});
+
+    POPULAR.forEach(t=>{
+      const c=document.createElement('li'); c.className='chip'; c.setAttribute('role','listitem'); c.textContent=t;
+      c.addEventListener('click',()=>{input.value=t;closeDD();doSearch(t);}); chipsWrap.appendChild(c);
+    });
+
+    function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    function hl(text,q){const i=text.toLowerCase().indexOf(q.toLowerCase());if(i===-1)return esc(text);return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length));}
+
+    function renderDD(q){
+      if(!q||q.length<2){closeDD();return;}
+      const m=allMovies.filter(t=>t.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+      if(!m.length){closeDD();return;}
+      acList.innerHTML='';activeIdx=-1;
+      m.forEach((t,i)=>{const li=document.createElement('li');li.setAttribute('role','option');li.setAttribute('id','ac-'+i);li.innerHTML=hl(t,q);li.addEventListener('mousedown',e=>{e.preventDefault();input.value=t;closeDD();doSearch(t);});acList.appendChild(li);});
+      acList.classList.add('open');
+    }
+    function closeDD(){acList.classList.remove('open');acList.innerHTML='';activeIdx=-1;}
+
+    input.addEventListener('input',()=>renderDD(input.value));
+    input.addEventListener('blur',()=>setTimeout(closeDD,150));
+    input.addEventListener('keydown',e=>{
+      const it=acList.querySelectorAll('li');
+      if(!it.length){if(e.key==='Enter'){closeDD();doSearch(input.value);}return;}
+      if(e.key==='ArrowDown'){e.preventDefault();it[activeIdx]?.classList.remove('active');activeIdx=(activeIdx+1)%it.length;it[activeIdx].classList.add('active');}
+      else if(e.key==='ArrowUp'){e.preventDefault();it[activeIdx]?.classList.remove('active');activeIdx=(activeIdx-1+it.length)%it.length;it[activeIdx].classList.add('active');}
+      else if(e.key==='Enter'){e.preventDefault();if(activeIdx>=0){input.value=it[activeIdx].textContent;closeDD();doSearch(input.value);}else{closeDD();doSearch(input.value);}}
+      else if(e.key==='Escape'){closeDD();}
+    });
+    searchBtn.addEventListener('click',()=>{closeDD();doSearch(input.value);});
+
+    async function doSearch(movie){
+      const q=movie.trim();
+      if(!q){setStatus('Please enter a film title.','error');return;}
+      setLoading(true);setStatus('Consulting the oracle...','info');hideResults();
+      try{
+        const res=await fetch(API_RECOMMEND+'?movie='+encodeURIComponent(q));
+        const data=await res.json();
+        if(!res.ok){setStatus(data.error||'Film not found. Try another title.','error');setLoading(false);return;}
+        setStatus('','info');renderResults(data.query,data.recommendations);
+        popularSection.style.display='none';
+      }catch{setStatus('Cannot reach server. Ensure app.py is running.','error');}
+      finally{setLoading(false);}
+    }
+
+    async function fetchPoster(title) {
+      try {
+        const r = await fetch('/api/poster?title=' + encodeURIComponent(title));
+        const d = await r.json();
+        return d.poster || null;
+      } catch { return null; }
+    }
+
+    function renderResults(query, recs) {
+      queryTitle.textContent = '"' + query + '"';
+      cardsGrid.innerHTML = '';
+      recs.forEach((rec, i) => {
+        const title = typeof rec === 'object' ? rec.title : rec;
+        const [c1, c2] = COLORS[i % COLORS.length];
+        const card = document.createElement('article');
+        card.className = 'movie-card';
+        card.setAttribute('role', 'listitem');
+        card.style.animationDelay = (i * 0.09) + 's';
+
+        const posterHtml = `
+          <div class="card-poster loading" id="poster-${i}" style="background:linear-gradient(160deg,${c1}18,${c2}0c)">
+            <div class="card-poster-placeholder" id="ph-${i}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">
+                <rect x="2" y="3" width="20" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path d="M21 15l-5-5L5 21"/>
+                <path d="M7 3v18M17 3v18M2 8h4M18 8h4M2 16h4M18 16h4" stroke-width=".7" opacity=".4"/>
+              </svg>
+            </div>
+            <img id="img-${i}" alt="${esc(title)} poster" />
+          </div>`;
+
+        card.innerHTML = `
+          <div class="card-rank">Pick ${ROMAN[i]}</div>
+          ${posterHtml}
+          <div class="card-title">${esc(title)}</div>
+          <div class="card-tag">Recommended</div>`;
+
+        cardsGrid.appendChild(card);
+
+        // Async poster fetch — does not block card rendering
+        fetchPoster(title).then(posterUrl => {
+          const posterWrap = document.getElementById('poster-' + i);
+          const ph = document.getElementById('ph-' + i);
+          const img = document.getElementById('img-' + i);
+          if (posterWrap) posterWrap.classList.remove('loading');
+          if (posterUrl && img) {
+            img.onload = () => {
+              img.classList.add('loaded');
+              if (ph) ph.classList.add('hidden');
+            };
+            img.onerror = () => { /* keep placeholder */ };
+            img.src = posterUrl;
+          }
+        });
+      });
+      showResults();
+    }
+
+    function setLoading(on){searchBtn.disabled=on;spinner.classList.toggle('visible',on);btnLabel.textContent=on?'Searching...':'Recommend';}
+    function setStatus(m,t){statusMsg.textContent=m;statusMsg.className='status '+t;}
+    function showResults(){resultsSection.classList.add('visible');setTimeout(()=>resultsSection.scrollIntoView({behavior:'smooth',block:'start'}),120);}
+    function hideResults(){resultsSection.classList.remove('visible');}
+  </script>
+</body>
+</html>
