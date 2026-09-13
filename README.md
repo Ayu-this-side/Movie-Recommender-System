@@ -5,9 +5,12 @@
 ![Scikit--Learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
 ![NLTK](https://img.shields.io/badge/NLTK-3.x-green?style=for-the-badge)
 ![IMDb](https://img.shields.io/badge/IMDb-Posters-F5C518?style=for-the-badge&logo=imdb&logoColor=black)
-![Git LFS](https://img.shields.io/badge/Git_LFS-Enabled-orange?style=for-the-badge&logo=git-lfs&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?style=for-the-badge&logo=vercel&logoColor=white)
+![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_Website-00C7B7?style=for-the-badge&logo=vercel&logoColor=white)
 
 > A modern, content-based movie recommender system powered by natural language processing and cosine similarity. Features an interactive, cinematic web interface with real-time autocomplete, dynamic IMDb poster fetching, and smooth video background.
+
+🌐 **Live Deployed Website**: [https://movie-recommender-system-y8a7.vercel.app/](https://movie-recommender-system-y8a7.vercel.app/)
 
 ---
 
@@ -118,13 +121,11 @@ pip install -r requirements.txt
 pip install flask pandas scikit-learn requests nltk
 ```
 
-### 4. Background Video (Optional)
+### 4. Background Video
 
-To enable the ambient video background:
-1. Place any `.mp4` video file inside the `static/` folder.
-2. Name it `bg.mp4` (or update the `<source src="...">` path in `index.html`).
+A web-optimized, seamless looping starry background video is included at `static/bg.mp4`. It is encoded for fast web streaming with `+faststart` and instant autoplay.
 
-### 5. Run the Application
+### 5. Run Locally
 
 ```bash
 python app.py
@@ -134,6 +135,11 @@ Open your browser and navigate to:
 ```
 http://127.0.0.1:5000
 ```
+
+### 6. Live Deployment (Vercel)
+
+The project is deployed on Vercel:
+- **Production URL**: [https://movie-recommender-system-y8a7.vercel.app/](https://movie-recommender-system-y8a7.vercel.app/)
 
 ---
 
